@@ -1,6 +1,6 @@
-train: ../train/images
-val: ../valid/images
-test: ../test/images
+train: /Users/asmaniroy/braillevision/dataset/train/images
+val: /Users/asmaniroy/braillevision/dataset/valid/images
+test: /Users/asmaniroy/braillevision/dataset/test/images
 
 nc: 26
 names: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
