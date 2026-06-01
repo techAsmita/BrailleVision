@@ -23,8 +23,8 @@ model = YOLO('yolov8n.pt')
 
 model.train(
     data=yaml_path,
-    epochs=5,        # Changed from 30 to 5
-    imgsz=416,       # Smaller image size = faster
+    epochs=100,       
+    imgsz=640,       
     batch=8,
     name='braille_detector',
     patience=10,

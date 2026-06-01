@@ -19,7 +19,7 @@ Camera → YOLOv8 Detection → Letter Recognition → English Text → Text-to-
 ## How to Run
 ```bash
 pip install -r requirements.txt
-streamlit run app.py
+python3 -m streamlit run app.py
 ```
 
 ## Dataset
