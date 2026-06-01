@@ -17,7 +17,7 @@ st.title("👁️ BrailleVision — Real-Time Braille Reader")
 st.markdown("Point your camera at physical Braille text to convert it to English")
 
 # Load model
-MODEL_PATH = os.path.expanduser("~/braillevision/runs/detect/braille_detector-3/weights/best.pt")
+MODEL_PATH = os.path.expanduser("~/braillevision/runs/detect/braille_detector-4/weights/best.pt")
 
 @st.cache_resource
 def load_model():
@@ -40,9 +40,7 @@ def speak(text):
 
 # Camera guidance
 def get_guidance(frame, detections):
-    h, w = frame.shape[:2]
     brightness = np.mean(frame)
-    
     if brightness < 60:
         return "⚠️ Too dark — move to better lighting"
     elif brightness > 220:
@@ -54,9 +52,41 @@ def get_guidance(frame, detections):
     else:
         return "✅ Braille detected!"
 
+# Line by line reading
+def extract_text_lines(detections, model):
+    if detections is None or len(detections) == 0:
+        return [], ""
+    
+    boxes_data = []
+    for box in detections:
+        x1 = float(box.xyxy[0][0])
+        y1 = float(box.xyxy[0][1])
+        cls = int(box.cls[0])
+        label = model.names[cls]
+        boxes_data.append((y1, x1, label))
+    
+    boxes_data.sort(key=lambda x: x[0])
+    
+    # Group into lines
+    lines = []
+    current_line = [boxes_data[0]]
+    for box in boxes_data[1:]:
+        if abs(box[0] - current_line[-1][0]) < 30:
+            current_line.append(box)
+        else:
+            lines.append(sorted(current_line, key=lambda x: x[1]))
+            current_line = [box]
+    lines.append(sorted(current_line, key=lambda x: x[1]))
+    
+    letters = [b[2] for line in lines for b in line]
+    text_lines = ["".join([b[2] for b in line]) for line in lines]
+    full_text = "\n".join(text_lines)
+    
+    return letters, full_text
+
 # Sidebar controls
 st.sidebar.title("Controls")
-confidence = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.5)
+confidence = st.sidebar.slider("Confidence Threshold", 0.1, 1.0, 0.4)
 speak_output = st.sidebar.checkbox("🔊 Speak Output", value=True)
 run_camera = st.sidebar.checkbox("📷 Start Camera", value=False)
 
@@ -85,44 +115,24 @@ if run_camera and model:
             st.error("Camera error!")
             break
         
-        # Run YOLO detection
-        results = model(frame, conf=confidence, verbose=False)
+        results = model(frame, conf=confidence, iou=0.3, verbose=False)
         detections = results[0].boxes
         
-        # Get guidance message
         guidance = get_guidance(frame, detections)
         guidance_placeholder.info(guidance)
         
-        # Draw detections and collect letters
         annotated = results[0].plot()
-        letters = []
+        letters, full_text = extract_text_lines(detections, model)
         
-        if detections is not None and len(detections) > 0:
-            # Sort by x position (left to right reading order)
-            boxes_data = []
-            for box in detections:
-                x1 = float(box.xyxy[0][0])
-                conf_score = float(box.conf[0])
-                cls = int(box.cls[0])
-                label = model.names[cls]
-                boxes_data.append((x1, label, conf_score))
-            
-            boxes_data.sort(key=lambda x: x[0])
-            letters = [item[1] for item in boxes_data]
-        
-        # Display results
-        detected_text = " ".join(letters) if letters else "..."
-        text_placeholder.markdown(f"### `{detected_text}`")
+        text_placeholder.markdown(f"### `{full_text}`")
         letters_placeholder.markdown(
             " ".join([f"**{l}**" for l in letters]) if letters else "Waiting..."
         )
         
-        # Speak if new text
-        if speak_output and detected_text != "..." and detected_text != last_spoken:
-            speak(detected_text)
-            last_spoken = detected_text
+        if speak_output and full_text and full_text != last_spoken:
+            speak(full_text)
+            last_spoken = full_text
         
-        # Show frame
         frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
         frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
     
@@ -131,7 +141,7 @@ if run_camera and model:
 elif not run_camera:
     frame_placeholder.info("👆 Check 'Start Camera' in the sidebar to begin")
 
-# Image upload option
+# Image upload
 st.markdown("---")
 st.subheader("📁 Or Upload a Braille Image")
 uploaded = st.file_uploader("Upload image", type=["jpg", "jpeg", "png"])
@@ -140,26 +150,25 @@ if uploaded and model:
     file_bytes = np.asarray(bytearray(uploaded.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     
-    results = model(img, conf=confidence, verbose=False)
+    results = model(img, conf=confidence, iou=0.3, verbose=False)
     detections = results[0].boxes
     annotated = results[0].plot()
     
-    letters = []
-    if detections is not None and len(detections) > 0:
-        boxes_data = []
-        for box in detections:
-            x1 = float(box.xyxy[0][0])
-            cls = int(box.cls[0])
-            label = model.names[cls]
-            boxes_data.append((x1, label))
-        boxes_data.sort(key=lambda x: x[0])
-        letters = [item[1] for item in boxes_data]
+    letters, full_text = extract_text_lines(detections, model)
     
     img_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
     st.image(img_rgb, caption="Detection Result", use_container_width=True)
     
-    detected_text = "".join(letters)
-    st.success(f"Detected: **{detected_text}**")
+    if full_text:
+        st.success(f"**Detected Text:**")
+        st.code(full_text)
+        
+        # Show line by line
+        st.subheader("Line by Line:")
+        for i, line in enumerate(full_text.split("\n")):
+            st.write(f"Line {i+1}: **{line}**")
+    else:
+        st.warning("No Braille detected — try lowering confidence threshold")
     
-    if speak_output and detected_text:
-        speak(detected_text)
+    if speak_output and full_text:
+        speak(full_text)
