@@ -134,7 +134,7 @@ if run_camera and model:
             last_spoken = full_text
         
         frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-        frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+        frame_placeholder.image(frame_rgb, channels="RGB", width='stretch')
     
     cap.release()
 
@@ -157,7 +157,7 @@ if uploaded and model:
     letters, full_text = extract_text_lines(detections, model)
     
     img_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-    st.image(img_rgb, caption="Detection Result", use_container_width=True)
+    st.image(img_rgb, caption="Detection Result", width='stretch')
     
     if full_text:
         st.success(f"**Detected Text:**")
