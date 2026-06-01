@@ -35,3 +35,11 @@ python3 -m streamlit run app.py
 
 ## AI Tools Used
 See ai_tools_disclosure.md
+
+## Future Improvements
+- Grade 2 Braille support (contractions)
+- Mobile app version (Flutter/Android)
+- Multi-language Braille support
+- Improved handling of angled/curved Braille
+- Word-level confidence scoring
+- Offline embedded deployment
